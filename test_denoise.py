@@ -41,6 +41,21 @@ def single_image_inference(model, img, save_path):
     sr_img = tensor2img([visuals['result']])
     imwrite(sr_img, save_path)
 
+def predict_single_image(model, img):
+    model.feed_data(data={'lq': img.unsqueeze(dim=0)})
+
+    if model.opt['val'].get('grids', False):
+        model.grids()
+
+    model.test()
+
+    if model.opt['val'].get('grids', False):
+        model.grids_inverse()
+
+    visuals = model.get_current_visuals()
+    sr_img = tensor2img([visuals['result']])
+    return sr_img
+
 opt_path = 'options/NAFNet-width32.yml'
 opt = parse(opt_path, is_train=False)
 opt['dist'] = False
