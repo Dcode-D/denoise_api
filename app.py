@@ -2,8 +2,10 @@ from flask import Flask, request, jsonify, send_file
 from test_denoise import img2tensor, predict_single_image
 from basicsr.models import create_model
 from basicsr.utils.options import parse
-import tempfile
+from basicsr.utils import imwrite
+from datetime import datetime
 import numpy as np
+import os
 from PIL import Image
 
 
@@ -32,6 +34,7 @@ def upload_image():
         return jsonify({"error": "No selected file"}), 400
 
     if file:
+        file_extension = os.path.splitext(file.filename)[1].lower()
         # Read the image file into a PIL Image
         image = Image.open(file.stream)
 
@@ -42,35 +45,14 @@ def upload_image():
         tensorImg = img2tensor(image_np)
 
         # Predict using the model
-        result_tensor = predict_single_image(NAFNet, tensorImg)
-
-        # Check if result_tensor is indeed a tensor
-        # if hasattr(result_tensor, 'detach'):
-        #     # Convert the tensor back to a NumPy array
-        #     result_image_np = result_tensor.squeeze().detach().cpu().numpy()
-        # else:
-        #     result_image_np = result_tensor.squeeze()
-        result_image_np = result_tensor.squeeze()
-        # Normalize image data
-        result_image_np_normalized = (result_image_np - np.min(result_image_np)) / (np.max(result_image_np) - np.min(result_image_np))
-
-        # Scale to [0, 255] and convert to uint8
-        result_image_np_uint8 = (result_image_np_normalized * 255).astype(np.uint8)
-
-        # Normalize and convert to uint8
-        if result_image_np_uint8.ndim == 2:
-            result_image_pil = Image.fromarray(result_image_np_uint8, mode='L')
-        else:
-            result_image_pil = Image.fromarray(result_image_np_uint8, mode='RGB')
-
-
-# Save the result image to a temporary file
-        temp_file = tempfile.NamedTemporaryFile(delete=False, suffix='.png')
-        result_image_pil.save(temp_file, format='PNG')
-        temp_file.close()
+        result_img = predict_single_image(NAFNet, tensorImg)
+        now = datetime.now()
+        timestamp_str = now.strftime("%Y%m%d_%H%M%S")
+        img_path = f"images/{timestamp_str}_image{file_extension}"
+        imwrite(result_img, img_path)
 
         # Send the file
-        return send_file(temp_file.name, mimetype='image/png')
+        return send_file(img_path,  mimetype=f'image/{file_extension[1:]}')
 
 
 
